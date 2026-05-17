@@ -13,6 +13,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 from log_parser import parse_line, CombatEvent
+from npc_matcher import match_npc
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -65,6 +66,11 @@ class SessionState:
             self._targets: dict = {}          # name → {out, in_}
             self._start = time.time()
             self._paper_dps: Optional[float] = None
+            # NPC intel
+            self._faction_hits: dict = {}     # faction_name → hit count
+            self._faction_data: dict = {}     # faction_name → faction_data dict
+            self._faction_last: dict = {}     # faction_name → last seen timestamp
+            self._rare_alerts: dict = {}      # entity_name → alert dict (deduped)
 
     def add_event(self, ev: CombatEvent):
         # Use wall-clock time, not the EVE log timestamp (EVE logs UTC,
@@ -85,6 +91,22 @@ class SessionState:
                     "direction": ev.direction,
                     "timestamp": ts,
                 })
+
+            # NPC intel — only match entities we are shooting at
+            if ev.direction == "to":
+                faction_name, faction_data, ship_data = match_npc(ev.entity)
+                if faction_name:
+                    self._faction_hits[faction_name] = self._faction_hits.get(faction_name, 0) + 1
+                    self._faction_data[faction_name] = faction_data
+                    self._faction_last[faction_name] = ts
+                if ship_data and ship_data.get("threat") in ("rare", "elite", "boss"):
+                    if ev.entity not in self._rare_alerts:
+                        self._rare_alerts[ev.entity] = {
+                            "name": ev.entity,
+                            "threat": ship_data["threat"],
+                            "notes": ship_data.get("notes", ""),
+                            "ts": ts,
+                        }
 
             t = self._targets.setdefault(ev.entity, {"out": 0, "in_": 0})
             if ev.direction == "to":
@@ -149,12 +171,22 @@ class SessionState:
             total_out = sum(v["out"] for v in self._targets.values())
             total_in = sum(v["in_"] for v in self._targets.values())
             paper_snap = self._paper_dps
+            # NPC intel snapshot — most recently seen faction is "current"
+            faction_hits_snap = dict(self._faction_hits)
+            faction_data_snap = dict(self._faction_data)
+            faction_last_snap = dict(self._faction_last)
+            rare_snap = list(self._rare_alerts.values())
 
-        target_list = sorted(
-            [{"name": k, "total_dmg_out": v["out"], "total_dmg_in": v["in_"]}
-             for k, v in targets_snap.items()],
-            key=lambda x: -x["total_dmg_out"],
-        )[:8]
+        if faction_last_snap:
+            current_faction = max(faction_last_snap, key=faction_last_snap.get)
+            faction_info = faction_data_snap.get(current_faction)
+            if faction_info:
+                faction_info = {k: v for k, v in faction_info.items() if k != "ship_names"}
+        else:
+            current_faction = None
+            faction_info = None
+
+        rare_snap.sort(key=lambda x: -x["ts"])
 
         return {
             "outgoing_dps": round(out_dps, 1),
@@ -167,8 +199,10 @@ class SessionState:
             "session_seconds": session_sec,
             "total_outgoing": int(total_out),
             "total_incoming": int(total_in),
-            "target_list": target_list,
             "recent_crits": crits[-5:],
+            "current_faction": current_faction,
+            "faction_info": faction_info,
+            "rare_alerts": rare_snap[:6],
         }
 
 

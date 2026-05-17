@@ -213,130 +213,173 @@
     overflow: hidden;
   }
 
-  /* ── Stat bar ────────────────────────────────────────── */
-  #stat-bar {
+  /* ── Mini stats bar ─────────────────────────────────── */
+  #mini-stats {
     display: flex;
-    gap: 6px;
-  }
-  .col-mode #stat-bar {
-    flex-direction: row;
-    margin-bottom: 10px;
-  }
-  .row-mode:not(.compact-mode) #stat-bar {
-    flex-direction: column;
-    gap: 1px;
+    gap: 4px;
+    flex-shrink: 0;
     margin-bottom: 8px;
   }
-  .compact-mode #stat-bar {
-    flex-direction: column;
-    gap: 0;
-    margin-bottom: 4px;
-  }
+  .col-mode #mini-stats  { flex-direction: row; }
+  .row-mode:not(.compact-mode) #mini-stats { flex-direction: column; gap: 1px; }
+  .compact-mode #mini-stats { flex-direction: column; gap: 0; margin-bottom: 4px; }
 
-  .stat-card {
+  .ms-item {
     background: #111116;
     border: 1px solid #1e1e26;
-    border-radius: 6px;
+    border-radius: 5px;
     min-width: 0;
   }
-  .col-mode .stat-card {
-    flex: 1;
-    padding: 7px 8px 6px;
-    text-align: center;
-  }
-  .row-mode:not(.compact-mode) .stat-card {
+  .col-mode .ms-item { flex: 1; padding: 6px 8px; text-align: center; }
+  .row-mode:not(.compact-mode) .ms-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 7px 10px;
+    padding: 6px 10px;
     border-radius: 4px;
   }
-
-  /* Compact card: abbrev icon + value on one line */
-  .compact-mode .stat-card {
+  .compact-mode .ms-item {
     display: flex;
     align-items: center;
     background: none;
     border: none;
     border-bottom: 1px solid #151520;
     border-radius: 0;
-    padding: 5px 4px;
+    padding: 4px 4px;
     gap: 3px;
   }
-  .compact-mode .stat-card::before {
+  .compact-mode .ms-item::before {
     content: attr(data-abbr);
     font-size: 9px;
     color: #2e2e3e;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
     width: 28px;
     flex-shrink: 0;
   }
-  .compact-mode .s-label { display: none; }
-
-  .s-label {
+  .ms-lbl {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: #44444e;
   }
-  .col-mode .s-label { font-size: 10px; margin-bottom: 4px; }
-  .row-mode:not(.compact-mode) .s-label { font-size: 11px; }
-
-  .s-value {
+  .col-mode .ms-lbl { font-size: 10px; margin-bottom: 3px; }
+  .row-mode:not(.compact-mode) .ms-lbl { font-size: 11px; }
+  .compact-mode .ms-lbl { display: none; }
+  .ms-val {
     font-weight: 600;
     color: #b0b0ba;
   }
-  .col-mode .s-value { font-size: 20px; display: block; }
-  .row-mode:not(.compact-mode) .s-value { font-size: 18px; }
-  .compact-mode .s-value { font-size: 13px; flex: 1; text-align: right; }
+  .col-mode .ms-val { font-size: 19px; display: block; }
+  .row-mode:not(.compact-mode) .ms-val { font-size: 17px; }
+  .compact-mode .ms-val { font-size: 13px; flex: 1; text-align: right; }
+  .ms-val.teal  { color: #1D9E75; }
+  .ms-val.red   { color: #D85A30; }
+  .ms-val.amber { color: #E8A820; }
 
-  .s-value.teal  { color: #1D9E75; }
-  .s-value.red   { color: #D85A30; }
-  .s-value.amber { color: #E8A820; }
+  /* ── NPC intel panel ─────────────────────────────────── */
+  #npc-panel { flex: 1; min-height: 0; overflow-y: auto; }
+  .compact-mode #npc-panel { display: none; }
 
-  /* ── Target list ─────────────────────────────────────── */
-  .compact-mode #target-section,
-  .compact-mode #bottom-bar { display: none; }
-
-  #target-section { flex: 1; min-height: 0; }
-  .col-mode #target-section { margin-bottom: 6px; }
-
-  #target-section h3 {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: #44444e;
-    margin-bottom: 5px;
-    padding-left: 2px;
+  .npc-ph {
+    font-size: 12px;
+    color: #2a2a38;
+    padding: 6px 2px;
   }
-  #target-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-  #target-table th {
-    text-align: left;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #33333e;
-    padding: 3px 6px 5px;
+  #npc-hdr {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    padding-bottom: 7px;
     border-bottom: 1px solid #1a1a22;
   }
-  #target-table td {
-    padding: 5px 6px;
-    border-bottom: 1px solid #141418;
-    color: #7a7a88;
-    white-space: nowrap;
+  .npc-faction-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #c8c8cc;
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 140px;
+    white-space: nowrap;
   }
-  #target-table td:first-child { color: #9090a0; }
-  #target-table td.teal { color: #1D9E75; }
-  #target-table td.red  { color: #c04040; }
-  #target-table tbody tr:hover td { background: #13131a; }
-  .no-targets { color: #33333e; font-size: 13px; padding: 8px 6px; }
+  .tank-badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    text-transform: uppercase;
+  }
+  .tank-badge.shield { background: #0a1e38; color: #378ADD; border: 1px solid #1a3a5a; }
+  .tank-badge.armor  { background: #2a1808; color: #E8A820; border: 1px solid #4a2e0a; }
+  .tank-badge.omni   { background: #1a1a22; color: #888780; border: 1px solid #2e2e3e; }
+  .tank-badge.varies { background: #1a1a22; color: #666660; border: 1px solid #2e2e3e; }
+
+  .npc-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .npc-lbl {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #303040;
+    width: 52px;
+    flex-shrink: 0;
+    padding-top: 3px;
+  }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 3px; flex: 1; }
+  .dtype-pill {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+    border: 1px solid;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+  }
+  .npc-ew-text { font-size: 11px; color: #7a7a88; flex: 1; line-height: 1.5; }
+  #npc-tip {
+    font-size: 11px;
+    color: #3a3a4e;
+    line-height: 1.55;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #1a1a22;
+  }
+
+  /* ── Rare spawn alerts ───────────────────────────────── */
+  #rare-section { flex-shrink: 0; margin-top: 4px; }
+  .compact-mode #rare-section { display: none; }
+  .sec-hdr {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #2a2a38;
+    margin-bottom: 4px;
+  }
+  .rare-item {
+    border-left: 2px solid;
+    padding: 4px 7px;
+    margin-bottom: 3px;
+    background: #0c0c12;
+    border-radius: 0 3px 3px 0;
+  }
+  .rare-item-top { display: flex; align-items: baseline; gap: 5px; }
+  .rare-threat {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+  .rare-name { font-size: 12px; color: #9090a0; }
+  .rare-notes { font-size: 10px; color: #44444e; margin-top: 1px; }
+
+  /* compact-mode hides bottom-bar */
+  .compact-mode #bottom-bar { display: none; }
 
   /* ── Bottom bar (reset + file) ───────────────────────── */
   #bottom-bar {
@@ -380,49 +423,61 @@
     <div id="status-overlay"></div>
   </div>
 
-  <!-- Stats + targets -->
+  <!-- Stats + NPC intel -->
   <div id="side-panel">
-    <div id="stat-bar">
-      <div class="stat-card" data-abbr="PDps">
-        <div class="s-label">Paper DPS</div>
-        <div class="s-value amber" id="sv-paper">—</div>
+
+    <!-- Compact stat row -->
+    <div id="mini-stats">
+      <div class="ms-item" data-abbr="DPS">
+        <div class="ms-lbl">DPS</div>
+        <div class="ms-val teal" id="sv-dps">0</div>
       </div>
-      <div class="stat-card" data-abbr="DPS">
-        <div class="s-label">Actual DPS</div>
-        <div class="s-value teal" id="sv-dps">0</div>
+      <div class="ms-item" data-abbr="APP">
+        <div class="ms-lbl">APP</div>
+        <div class="ms-val" id="sv-app">—</div>
       </div>
-      <div class="stat-card" data-abbr="App">
-        <div class="s-label">Application</div>
-        <div class="s-value" id="sv-app">—</div>
+      <div class="ms-item" data-abbr="RCV">
+        <div class="ms-lbl">RECV</div>
+        <div class="ms-val red" id="sv-recv">0</div>
       </div>
-      <div class="stat-card" data-abbr="Recv">
-        <div class="s-label">Total Received</div>
-        <div class="s-value red" id="sv-recv">0</div>
-      </div>
-      <div class="stat-card" data-abbr="Sess">
-        <div class="s-label">Session</div>
-        <div class="s-value" id="sv-sess">0:00</div>
+      <div class="ms-item" data-abbr="SESS">
+        <div class="ms-lbl">SESS</div>
+        <div class="ms-val" id="sv-sess">0:00</div>
       </div>
     </div>
 
-    <div id="target-section">
-      <h3>Targets / Attackers</h3>
-      <table id="target-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Dealt</th>
-            <th>Recvd</th>
-          </tr>
-        </thead>
-        <tbody id="target-body">
-          <tr><td colspan="3" class="no-targets">No combat data yet.</td></tr>
-        </tbody>
-      </table>
+    <!-- NPC intel -->
+    <div id="npc-panel">
+      <div id="npc-placeholder" class="npc-ph">Awaiting NPC intel…</div>
+      <div id="npc-content" hidden>
+        <div id="npc-hdr">
+          <span id="npc-tank" class="tank-badge shield">SHIELD</span>
+          <span id="npc-name" class="npc-faction-name"></span>
+        </div>
+        <div class="npc-row">
+          <span class="npc-lbl">Deal</span>
+          <div id="npc-deal" class="pill-row"></div>
+        </div>
+        <div class="npc-row">
+          <span class="npc-lbl">They deal</span>
+          <div id="npc-recv" class="pill-row"></div>
+        </div>
+        <div class="npc-row" id="npc-ew-row">
+          <span class="npc-lbl">EW</span>
+          <span id="npc-ew" class="npc-ew-text"></span>
+        </div>
+        <div id="npc-tip"></div>
+      </div>
+    </div>
+
+    <!-- Rare spawn alerts -->
+    <div id="rare-section" hidden>
+      <div class="sec-hdr">Rare spawns</div>
+      <div id="rare-list"></div>
     </div>
 
     <div id="bottom-bar">
-      <button onclick="resetSession()">↺ Reset session</button>
+      <button onclick="resetSession()">↺ Reset</button>
       <span id="file-name">—</span>
     </div>
   </div>
@@ -452,6 +507,22 @@ const COLORS = {
   red_text:      '#D85A30',
   dim:           '#22222a',
   divider:       'rgba(255,255,255,0.18)',
+};
+
+const DTYPE_COLORS = {
+  EM:        '#378ADD',
+  Thermal:   '#5DCAA5',
+  Kinetic:   '#1D9E75',
+  Explosive: '#7F77DD',
+  omni:      '#888780',
+  varies:    '#555560',
+};
+
+const THREAT_COLORS = {
+  normal: '#888780',
+  elite:  '#EF9F27',
+  rare:   '#7F77DD',
+  boss:   '#D85A30',
 };
 
 const DTYPE_ORDER_OUT = ['Kinetic','Thermal','EM','Explosive','Unknown'];
@@ -629,6 +700,8 @@ function draw(s) {
 
   ctx.clearRect(0, 0, size, size);
 
+  const hasData = (s.total_outgoing > 0 || s.total_incoming > 0);
+
   // BG circle
   ctx.beginPath();
   ctx.arc(cx, cy, R_CENTER + 4*scale, 0, PI2);
@@ -668,63 +741,69 @@ function draw(s) {
   drawTypeArc(DTYPE_ORDER_IN,  COLOR_IN,  s.incoming_by_type, TOP + Math.PI, Math.PI, R_IN, W_IN);
   drawDividers();
 
-  // ── Center text ──────────────────────────────────────
-  ctx.beginPath();
-  ctx.moveTo(cx - 90*scale, cy);
-  ctx.lineTo(cx + 90*scale, cy);
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-  ctx.lineWidth   = 1;
-  ctx.stroke();
-
   const f = (sz, bold) => `${bold ? 'bold ' : ''}${Math.round(sz * scale)}px "Segoe UI", system-ui, sans-serif`;
-
   ctx.textAlign = 'center';
 
-  // Top — OUTGOING
-  ctx.fillStyle = '#3a3a48';
-  ctx.font = f(13);
-  ctx.fillText('OUTGOING', cx, cy - 68*scale);
-
-  ctx.fillStyle = COLORS.teal;
-  ctx.font = f(46, true);
-  ctx.fillText(Math.round(outDps), cx, cy - 26*scale);
-
-  ctx.fillStyle = '#404050';
-  ctx.font = f(13);
-  const appLabel = appMode === 'paper'
-    ? `${Math.round(appPct)}% applied`
-    : `${Math.round(appPct)}% consistent`;
-  ctx.fillText(appLabel, cx, cy - 10*scale);
-
-  if (appMode === 'paper' && paperDps) {
-    ctx.fillStyle = '#2a2a36';
+  // ── Center text ──────────────────────────────────────
+  if (!hasData) {
+    // No combat yet — small unobtrusive hint
+    ctx.fillStyle = '#252530';
     ctx.font = f(11);
-    ctx.fillText(`paper: ${Math.round(paperDps)}`, cx, cy + 3*scale);
+    ctx.fillText('waiting for combat', cx, cy + 4*scale);
+  } else {
+    // Divider line
+    ctx.beginPath();
+    ctx.moveTo(cx - 90*scale, cy);
+    ctx.lineTo(cx + 90*scale, cy);
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth   = 1;
+    ctx.stroke();
+
+    // Top — OUTGOING
+    ctx.fillStyle = '#3a3a48';
+    ctx.font = f(13);
+    ctx.fillText('OUTGOING', cx, cy - 68*scale);
+
+    ctx.fillStyle = COLORS.teal;
+    ctx.font = f(46, true);
+    ctx.fillText(Math.round(outDps), cx, cy - 26*scale);
+
+    ctx.fillStyle = '#404050';
+    ctx.font = f(13);
+    const appLabel = appMode === 'paper'
+      ? `${Math.round(appPct)}% applied`
+      : `${Math.round(appPct)}% consistent`;
+    ctx.fillText(appLabel, cx, cy - 10*scale);
+
+    if (appMode === 'paper' && paperDps) {
+      ctx.fillStyle = '#2a2a36';
+      ctx.font = f(11);
+      ctx.fillText(`paper: ${Math.round(paperDps)}`, cx, cy + 3*scale);
+    }
+
+    // Bottom — INCOMING
+    ctx.fillStyle = '#3a3a48';
+    ctx.font = f(13);
+    ctx.fillText('INCOMING', cx, cy + 20*scale);
+
+    ctx.fillStyle = COLORS.red_text;
+    ctx.font = f(38, true);
+    ctx.fillText(Math.round(inDps), cx, cy + 54*scale);
+
+    ctx.fillStyle = '#404050';
+    ctx.font = f(13);
+    ctx.fillText('dps', cx, cy + 70*scale);
   }
-
-  // Bottom — INCOMING
-  ctx.fillStyle = '#3a3a48';
-  ctx.font = f(13);
-  ctx.fillText('INCOMING', cx, cy + 20*scale);
-
-  ctx.fillStyle = COLORS.red_text;
-  ctx.font = f(38, true);
-  ctx.fillText(Math.round(inDps), cx, cy + 54*scale);
-
-  ctx.fillStyle = '#404050';
-  ctx.font = f(13);
-  ctx.fillText('dps', cx, cy + 70*scale);
 }
 
 // ---------------------------------------------------------------------------
-// Stat bar + badge
+// Mini stats + badge
 // ---------------------------------------------------------------------------
-function updateStats(s) {
-  document.getElementById('sv-paper').textContent = s.paper_dps ? Math.round(s.paper_dps) : '—';
-  document.getElementById('sv-dps').textContent   = Math.round(s.outgoing_dps);
-  document.getElementById('sv-app').textContent   = Math.round(s.application_pct) + '%';
-  document.getElementById('sv-recv').textContent  = fmtNum(s.total_incoming);
-  document.getElementById('sv-sess').textContent  = fmtTime(s.session_seconds);
+function updateMiniStats(s) {
+  document.getElementById('sv-dps').textContent  = Math.round(s.outgoing_dps);
+  document.getElementById('sv-app').textContent  = Math.round(s.application_pct) + '%';
+  document.getElementById('sv-recv').textContent = fmtNum(s.total_incoming);
+  document.getElementById('sv-sess').textContent = fmtTime(s.session_seconds);
 }
 
 function updateBadge(s) {
@@ -742,24 +821,80 @@ function updateBadge(s) {
 }
 
 // ---------------------------------------------------------------------------
-// Target table
+// NPC intel panel
 // ---------------------------------------------------------------------------
-function updateTargets(list) {
-  const tbody = document.getElementById('target-body');
-  if (!list || list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="3" class="no-targets">No combat data yet.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = list.map(t => `
-    <tr>
-      <td title="${escHtml(t.name)}">${escHtml(t.name)}</td>
-      <td class="teal">${fmtNum(t.total_dmg_out)}</td>
-      <td class="red">${fmtNum(t.total_dmg_in)}</td>
-    </tr>`).join('');
-}
-
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function makePills(types, container) {
+  container.innerHTML = '';
+  for (const t of types) {
+    const pill = document.createElement('span');
+    pill.className = 'dtype-pill';
+    const col = DTYPE_COLORS[t] || '#555568';
+    pill.style.color = col;
+    pill.style.borderColor = col + '88';
+    pill.style.background  = col + '14';
+    pill.textContent = t === 'omni' ? 'All types' : t === 'varies' ? 'Mixed' : t;
+    container.appendChild(pill);
+  }
+}
+
+function updateNPC(s) {
+  const ph      = document.getElementById('npc-placeholder');
+  const content = document.getElementById('npc-content');
+
+  if (!s.current_faction || !s.faction_info) {
+    ph.hidden      = false;
+    content.hidden = true;
+    document.getElementById('rare-section').hidden = true;
+    return;
+  }
+
+  ph.hidden      = true;
+  content.hidden = false;
+
+  const fi = s.faction_info;
+  document.getElementById('npc-name').textContent = s.current_faction;
+
+  const tankEl = document.getElementById('npc-tank');
+  const tank = (fi.tank || 'varies').toLowerCase();
+  tankEl.textContent = tank.toUpperCase();
+  tankEl.className = 'tank-badge ' + tank;
+
+  makePills(fi.weak_to || [], document.getElementById('npc-deal'));
+  makePills(fi.deals   || [], document.getElementById('npc-recv'));
+
+  const ewRow  = document.getElementById('npc-ew-row');
+  const ewText = document.getElementById('npc-ew');
+  if (fi.ew && fi.ew.length > 0) {
+    ewText.textContent = fi.ew.join(' · ');
+    ewRow.hidden = false;
+  } else {
+    ewRow.hidden = true;
+  }
+
+  document.getElementById('npc-tip').textContent = fi.notes || '';
+
+  // Rare alerts
+  const rareSection = document.getElementById('rare-section');
+  const rareList    = document.getElementById('rare-list');
+  if (s.rare_alerts && s.rare_alerts.length > 0) {
+    rareSection.hidden = false;
+    rareList.innerHTML = s.rare_alerts.map(a => {
+      const col = THREAT_COLORS[a.threat] || '#888';
+      return `<div class="rare-item" style="border-left-color:${col}">
+        <div class="rare-item-top">
+          <span class="rare-threat" style="color:${col}">${a.threat.toUpperCase()}</span>
+          <span class="rare-name">${escHtml(a.name)}</span>
+        </div>
+        <div class="rare-notes">${escHtml(a.notes || '')}</div>
+      </div>`;
+    }).join('');
+  } else {
+    rareSection.hidden = true;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -824,14 +959,11 @@ async function poll() {
     lastState = s;
     _pollFailing = false;
 
-    const hasData = s.total_outgoing > 0 || s.total_incoming > 0;
-    setStatus(noLogDir
-      ? 'No EVE log directory found. Start EVE first.'
-      : (!hasData ? 'Waiting for combat…' : null));
+    setStatus(noLogDir ? 'No EVE log directory found. Start EVE first.' : null);
 
     draw(s);
-    updateStats(s);
-    updateTargets(s.target_list);
+    updateMiniStats(s);
+    updateNPC(s);
     updateBadge(s);
     processCrits(s.recent_crits);
     document.getElementById('file-name').textContent = s.monitored_file || '—';
