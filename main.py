@@ -56,8 +56,9 @@ class SessionState:
         self._lock = threading.Lock()
         self.reset()
 
-    def reset(self):
+    def reset(self, *, keep_paper: bool = False):
         with self._lock if hasattr(self, "_lock") else _nullctx():
+            saved_paper = self._paper_dps if (keep_paper and hasattr(self, '_paper_dps')) else None
             self._out_hits: deque = deque()         # (timestamp, damage, dtype, is_crit) — 10s window
             self._in_hits: deque = deque()          # same
             self._out_all_dmg: list = []            # all-time damage values for consistency calc
@@ -67,7 +68,7 @@ class SessionState:
             self._targets: dict = {}          # name → {out, in_}
             self._start = time.time()
             self._last_event_ts: Optional[float] = None  # wall-clock time of most recent event
-            self._paper_dps: Optional[float] = None
+            self._paper_dps: Optional[float] = saved_paper
             # NPC intel
             self._faction_hits: dict = {}     # faction_name → hit count
             self._faction_data: dict = {}     # faction_name → faction_data dict
@@ -133,7 +134,7 @@ class SessionState:
                 return
             has_data = bool(self._targets)
         if has_data:
-            self.reset()
+            self.reset(keep_paper=True)
 
     def get_state(self) -> dict:
         now = time.time()
