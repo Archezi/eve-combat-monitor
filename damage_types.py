@@ -1,3 +1,5 @@
+from npc_damage_map import lookup as _npc_lookup
+
 DAMAGE_TYPE_KEYWORDS = {
     # ── Kinetic ────────────────────────────────────────────────────
     "Kinetic": [
@@ -62,25 +64,6 @@ DAMAGE_TYPE_KEYWORDS = {
 
         # Generic fallback (space-padded to avoid partial matches in words)
         " em ",
-
-        # ── NPC entity name prefixes (turrets don't log weapon names) ─────────
-        # When a turret NPC hits you, EVE logs "Entity - Hits" with no weapon.
-        # log_parser falls back to the entity name, so we match on NPC class prefixes.
-
-        # Sansha's Nation (all ship classes deal primarily EM)
-        "centii",       # frigates: Ravener, Scavenger, Slavehunter, Savage, Minion…
-        "centior",      # destroyers: Devourer, Abomination, Horror, Monster…
-        "centum",       # cruisers: Ravisher, Fiend, Mutant, Execrator…
-        "centus",       # battleships: Plague, Beast, Savage, Tyrant…
-        "centatis",     # officer spawns
-        "sansha",       # covers Sansha Sentry Gun, Tower Sentry Sansha, etc.
-
-        # Blood Raiders (energy weapons, EM/Thermal — EM dominant)
-        "corpii",       # frigates: Raider, Diviner, Worshiper, Engraver…
-        "corpior",      # destroyers: Devoter, Converter, Templar…
-        "corpus",       # cruisers: Monsignor, Pope, Patriarch, Archbishop…
-        "corpatis",     # officer spawns
-        "dark blood",   # officer/faction prefix
     ],
 
     # ── Explosive ──────────────────────────────────────────────────
@@ -99,14 +82,6 @@ DAMAGE_TYPE_KEYWORDS = {
         "entropic disintegrator", "disintegrator",
         # Generic
         "explosive",
-
-        # ── NPC entity name prefixes (turrets, no weapon logged) ──────────────
-        # Angel Cartel (autocannons, primarily Explosive)
-        "gistii",       # frigates: Smasher, Trasher, Arrogator…
-        "gistior",      # destroyers: Haunter, Defiler, Seeker…
-        "gistum",       # cruisers: Breaker, Marauder, Mutilator…
-        "gistatis",     # officer spawns
-        "arch gistii", "arch gistior", "arch gistum",   # arch-class
     ],
 }
 
@@ -122,7 +97,16 @@ _SORTED_KEYWORDS = sorted(
 
 
 def get_damage_type(weapon: str) -> str:
-    """Return damage type string for a given weapon/ammo name."""
+    """Return damage type for a weapon/ammo name or NPC entity name.
+
+    Check order:
+      1. npc_damage_map — exact NPC entity prefix lookup (handles turret hits
+         where EVE logs only the entity name, not the weapon).
+      2. weapon/ammo keyword scan — handles named weapons and ammo types.
+    """
+    npc = _npc_lookup(weapon)
+    if npc:
+        return npc
     lower = weapon.lower()
     for kw, dtype in _SORTED_KEYWORDS:
         if kw in lower:
