@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EVE Combat Monitor</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: #0d0d0f;
+  }
+
+  body {
+    color: #c8c8cc;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 15px;
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Pinned: topbar fades out, circle+stats stay solid ── */
+  /* Window-level transparency is handled by Win32 layered alpha  */
+  #topbar { transition: opacity 0.45s ease; }
+  body.is-pinned #topbar       { opacity: 0.06; }
+  body.is-pinned:hover #topbar { opacity: 1; }
+
+  /* ── Top bar ─────────────────────────────────────────── */
+  #topbar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px 6px;
+    background: #111114;
+    border-bottom: 1px solid #1e1e24;
+  }
+
+  #topbar input {
+    background: #1a1a1f;
+    border: 1px solid #2a2a32;
+    border-radius: 4px;
+    color: #c8c8cc;
+    padding: 5px 9px;
+    font-size: 14px;
+    outline: none;
+    width: 140px;
+  }
+  #topbar input:focus { border-color: #1D9E75; }
+  #topbar input::placeholder { color: #44444a; }
+
+  .btn {
+    background: #1e1e26;
+    border: 1px solid #2e2e3a;
+    border-radius: 4px;
+    color: #9090a0;
+    padding: 5px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: #252530; color: #c8c8cc; }
+  .btn.teal { border-color: #1D9E75; color: #1D9E75; }
+  .btn.teal:hover { background: #1D9E7522; }
+  .btn.red  { border-color: #A32D2D; color: #c04040; }
+  .btn.red:hover  { background: #A32D2D22; }
+
+  #mode-badge {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+  }
+  #mode-badge.consistency { background: #3a2e0a; color: #E8A820; border: 1px solid #5a4a15; }
+  #mode-badge.paper       { background: #0a2a20; color: #1D9E75; border: 1px solid #154030; }
+
+  #paper-label { font-size: 12px; color: #555560; white-space: nowrap; flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+  #pin-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    opacity: 0.45;
+    transition: opacity 0.15s;
+    padding: 2px 4px;
+    line-height: 1;
+  }
+  #pin-btn:hover  { opacity: 1; }
+  #pin-btn.active { opacity: 1; filter: drop-shadow(0 0 4px #5599ff); }
+
+  #panel-btn {
+    margin-left: 4px;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    font-size: 17px;
+    cursor: pointer;
+    opacity: 0.4;
+    transition: opacity 0.15s;
+    padding: 2px 4px;
+    line-height: 1;
+  }
+  #panel-btn:hover { opacity: 1; }
+
+  /* Panel hidden: side panel collapses */
+  #content.panel-hidden #side-panel { display: none; }
+
+  /* ── Content area ────────────────────────────────────── */
+  #content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    overflow: hidden;
+    background: #0d0d0f;  /* solid when not pinned */
+  }
+
+  /* Column mode — HUD on top, panel below */
+  #content.col-mode {
+    flex-direction: column;
+    align-items: center;
+    overflow-y: auto;
+  }
+
+  /* Row mode — HUD on left, panel on right */
+  #content.row-mode {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  /* ── HUD wrap ────────────────────────────────────────── */
+  #hud-wrap {
+    position: relative;
+    flex-shrink: 0;
+  }
+  .col-mode #hud-wrap { margin: 12px auto 0; }
+  .row-mode #hud-wrap { margin: auto 0;      }
+
+  #hud-canvas { display: block; }
+
+  /* Status overlay */
+  #status-overlay {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px;
+    font-size: 14px;
+    color: #555560;
+    pointer-events: none;
+  }
+
+  /* Crit floaters */
+  #floater-host {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .crit-floater {
+    position: absolute;
+    font-weight: 700;
+    white-space: nowrap;
+    animation: floatUp 1.4s ease-out forwards;
+  }
+  @keyframes floatUp {
+    0%   { transform: translateY(0);     opacity: 1; }
+    100% { transform: translateY(-60px); opacity: 0; }
+  }
+
+  /* ── Side panel ──────────────────────────────────────── */
+  #side-panel {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .col-mode #side-panel {
+    width: 100%;
+    padding: 10px 16px 12px;
+    flex-shrink: 0;
+  }
+
+  /* Row mode — full panel */
+  .row-mode:not(.compact-mode) #side-panel {
+    flex: 0 0 270px;
+    max-width: 270px;
+    padding: 10px 12px;
+    border-left: 1px solid #1a1a22;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* Row mode — compact panel (icons+numbers only) */
+  .compact-mode #side-panel {
+    flex: 0 0 96px;
+    max-width: 96px;
+    padding: 6px 4px;
+    border-left: 1px solid #1a1a22;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  /* ── Stat bar ────────────────────────────────────────── */
+  #stat-bar {
+    display: flex;
+    gap: 6px;
+  }
+  .col-mode #stat-bar {
+    flex-direction: row;
+    margin-bottom: 10px;
+  }
+  .row-mode:not(.compact-mode) #stat-bar {
+    flex-direction: column;
+    gap: 1px;
+    margin-bottom: 8px;
+  }
+  .compact-mode #stat-bar {
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 4px;
+  }
+
+  .stat-card {
+    background: #111116;
+    border: 1px solid #1e1e26;
+    border-radius: 6px;
+    min-width: 0;
+  }
+  .col-mode .stat-card {
+    flex: 1;
+    padding: 7px 8px 6px;
+    text-align: center;
+  }
+  .row-mode:not(.compact-mode) .stat-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    border-radius: 4px;
+  }
+
+  /* Compact card: abbrev icon + value on one line */
+  .compact-mode .stat-card {
+    display: flex;
+    align-items: center;
+    background: none;
+    border: none;
+    border-bottom: 1px solid #151520;
+    border-radius: 0;
+    padding: 5px 4px;
+    gap: 3px;
+  }
+  .compact-mode .stat-card::before {
+    content: attr(data-abbr);
+    font-size: 9px;
+    color: #2e2e3e;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    width: 28px;
+    flex-shrink: 0;
+  }
+  .compact-mode .s-label { display: none; }
+
+  .s-label {
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #44444e;
+  }
+  .col-mode .s-label { font-size: 10px; margin-bottom: 4px; }
+  .row-mode:not(.compact-mode) .s-label { font-size: 11px; }
+
+  .s-value {
+    font-weight: 600;
+    color: #b0b0ba;
+  }
+  .col-mode .s-value { font-size: 20px; display: block; }
+  .row-mode:not(.compact-mode) .s-value { font-size: 18px; }
+  .compact-mode .s-value { font-size: 13px; flex: 1; text-align: right; }
+
+  .s-value.teal  { color: #1D9E75; }
+  .s-value.red   { color: #D85A30; }
+  .s-value.amber { color: #E8A820; }
+
+  /* ── Target list ─────────────────────────────────────── */
+  .compact-mode #target-section,
+  .compact-mode #bottom-bar { display: none; }
+
+  #target-section { flex: 1; min-height: 0; }
+  .col-mode #target-section { margin-bottom: 6px; }
+
+  #target-section h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #44444e;
+    margin-bottom: 5px;
+    padding-left: 2px;
+  }
+  #target-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  #target-table th {
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #33333e;
+    padding: 3px 6px 5px;
+    border-bottom: 1px solid #1a1a22;
+  }
+  #target-table td {
+    padding: 5px 6px;
+    border-bottom: 1px solid #141418;
+    color: #7a7a88;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+  }
+  #target-table td:first-child { color: #9090a0; }
+  #target-table td.teal { color: #1D9E75; }
+  #target-table td.red  { color: #c04040; }
+  #target-table tbody tr:hover td { background: #13131a; }
+  .no-targets { color: #33333e; font-size: 13px; padding: 8px 6px; }
+
+  /* ── Bottom bar (reset + file) ───────────────────────── */
+  #bottom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 6px;
+    flex-shrink: 0;
+  }
+  #bottom-bar button {
+    background: none;
+    border: none;
+    color: #33333e;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  #bottom-bar button:hover { color: #666670; }
+  #file-name { font-size: 10px; color: #252530; }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div id="topbar">
+  <input id="paper-input" type="number" min="1" max="99999" placeholder="Paper DPS…" />
+  <button class="btn teal" onclick="setPaper()">Set</button>
+  <button class="btn red"  onclick="clearPaper()">Clear</button>
+  <span id="mode-badge" class="consistency">Consistency mode</span>
+  <span id="paper-label"></span>
+  <button id="panel-btn" title="Toggle info panel" onclick="togglePanel()">⊟</button>
+  <button id="pin-btn" title="Always on top" onclick="togglePin()">📌</button>
+</div>
+
+<!-- Content (HUD + side panel) -->
+<div id="content" class="col-mode">
+
+  <!-- HUD -->
+  <div id="hud-wrap">
+    <canvas id="hud-canvas"></canvas>
+    <div id="floater-host"></div>
+    <div id="status-overlay"></div>
+  </div>
+
+  <!-- Stats + targets -->
+  <div id="side-panel">
+    <div id="stat-bar">
+      <div class="stat-card" data-abbr="PDps">
+        <div class="s-label">Paper DPS</div>
+        <div class="s-value amber" id="sv-paper">—</div>
+      </div>
+      <div class="stat-card" data-abbr="DPS">
+        <div class="s-label">Actual DPS</div>
+        <div class="s-value teal" id="sv-dps">0</div>
+      </div>
+      <div class="stat-card" data-abbr="App">
+        <div class="s-label">Application</div>
+        <div class="s-value" id="sv-app">—</div>
+      </div>
+      <div class="stat-card" data-abbr="Recv">
+        <div class="s-label">Total Received</div>
+        <div class="s-value red" id="sv-recv">0</div>
+      </div>
+      <div class="stat-card" data-abbr="Sess">
+        <div class="s-label">Session</div>
+        <div class="s-value" id="sv-sess">0:00</div>
+      </div>
+    </div>
+
+    <div id="target-section">
+      <h3>Targets / Attackers</h3>
+      <table id="target-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Dealt</th>
+            <th>Recvd</th>
+          </tr>
+        </thead>
+        <tbody id="target-body">
+          <tr><td colspan="3" class="no-targets">No combat data yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div id="bottom-bar">
+      <button onclick="resetSession()">↺ Reset session</button>
+      <span id="file-name">—</span>
+    </div>
+  </div>
+
+</div><!-- #content -->
+
+<script>
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+const PI2 = Math.PI * 2;
+const TOP = -Math.PI / 2;
+
+const COLORS = {
+  out_kinetic:   '#1D9E75',
+  out_thermal:   '#5DCAA5',
+  out_em:        '#378ADD',
+  out_explosive: '#7F77DD',
+  out_unknown:   '#888780',
+  in_em:         '#EF9F27',
+  in_thermal:    '#D85A30',
+  in_kinetic:    '#888780',
+  in_explosive:  '#534AB7',
+  in_unknown:    '#444441',
+  teal:          '#1D9E75',
+  red_arc:       '#A32D2D',
+  red_text:      '#D85A30',
+  dim:           '#22222a',
+  divider:       'rgba(255,255,255,0.18)',
+};
+
+const DTYPE_ORDER_OUT = ['Kinetic','Thermal','EM','Explosive','Unknown'];
+const DTYPE_ORDER_IN  = ['EM','Thermal','Kinetic','Explosive','Unknown'];
+const COLOR_OUT = { Kinetic: COLORS.out_kinetic, Thermal: COLORS.out_thermal, EM: COLORS.out_em, Explosive: COLORS.out_explosive, Unknown: COLORS.out_unknown };
+const COLOR_IN  = { EM: COLORS.in_em, Thermal: COLORS.in_thermal, Kinetic: COLORS.in_kinetic, Explosive: COLORS.in_explosive, Unknown: COLORS.in_unknown };
+
+const MAX_IN_DPS = 2000;
+const ROW_MODE_HEIGHT_THRESHOLD  = 540; // switch to row layout below this height
+const COMPACT_CIRCLE_THRESHOLD   = 220; // switch to compact panel if circle < this
+
+// ---------------------------------------------------------------------------
+// Elements
+// ---------------------------------------------------------------------------
+const canvas    = document.getElementById('hud-canvas');
+const ctx       = canvas.getContext('2d');
+const contentEl = document.getElementById('content');
+const hudWrap   = document.getElementById('hud-wrap');
+const sidePanel = document.getElementById('side-panel');
+
+// ---------------------------------------------------------------------------
+// Layout manager
+// ---------------------------------------------------------------------------
+let currentSize   = 300;
+let isRowMode     = false;
+let isCompactMode = false;
+
+function updateLayout() {
+  const W = contentEl.clientWidth;
+  const H = contentEl.clientHeight;
+
+  const wantRow = H < ROW_MODE_HEIGHT_THRESHOLD;
+
+  let size, wantCompact = false;
+
+  if (!wantRow) {
+    // Column mode: circle fills width, stats go below (~260px)
+    size = Math.max(120, Math.min(W - 24, H - 260));
+  } else {
+    // Row mode: try full panel (270px) first
+    const sizeWithFull    = Math.max(100, Math.min(H - 8, W - 270 - 8));
+    // If circle would be too small, try compact panel (96px)
+    const sizeWithCompact = Math.max(100, Math.min(H - 8, W -  96 - 8));
+    wantCompact = sizeWithFull < COMPACT_CIRCLE_THRESHOLD;
+    size = wantCompact ? sizeWithCompact : sizeWithFull;
+  }
+
+  // Apply mode classes
+  if (wantRow !== isRowMode) {
+    isRowMode = wantRow;
+    contentEl.classList.toggle('row-mode', isRowMode);
+    contentEl.classList.toggle('col-mode', !isRowMode);
+  }
+  if (wantRow && wantCompact !== isCompactMode) {
+    isCompactMode = wantCompact;
+    contentEl.classList.toggle('compact-mode', isCompactMode);
+  } else if (!wantRow && isCompactMode) {
+    isCompactMode = false;
+    contentEl.classList.remove('compact-mode');
+  }
+
+  size = Math.round(size);
+  if (size !== currentSize || canvas.width !== size) {
+    currentSize   = size;
+    canvas.width  = size;
+    canvas.height = size;
+    hudWrap.style.width  = size + 'px';
+    hudWrap.style.height = size + 'px';
+  }
+
+  if (lastState) draw(lastState);
+}
+
+const resizeObserver = new ResizeObserver(() => updateLayout());
+resizeObserver.observe(contentEl);
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let pinned       = true;
+let panelVisible = true;
+let lastState    = null;
+let shownCrits   = new Set();
+let noLogDir     = (typeof window._CFG !== 'undefined') && window._CFG.noLogDir;
+
+// Win32 layered-window alpha animation
+const ALPHA_PINNED = 217;  // ~85%
+const ALPHA_FULL   = 255;
+let _curAlpha  = ALPHA_FULL;
+let _alphaAnim = null;
+
+function _stepAlpha(target) {
+  if (_alphaAnim) { clearInterval(_alphaAnim); _alphaAnim = null; }
+  if (_curAlpha === target) return;
+  _alphaAnim = setInterval(() => {
+    const delta = target - _curAlpha;
+    const step  = Math.sign(delta) * Math.min(Math.abs(delta), 5);
+    _curAlpha  += step;
+    if (window.pywebview && window.pywebview.api)
+      window.pywebview.api.set_window_alpha(_curAlpha);
+    if (_curAlpha === target) { clearInterval(_alphaAnim); _alphaAnim = null; }
+  }, 40);
+}
+
+document.body.addEventListener('mouseenter', () => { if (pinned) _stepAlpha(ALPHA_FULL); });
+document.body.addEventListener('mouseleave', () => { if (pinned) _stepAlpha(ALPHA_PINNED); });
+
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
+function fmtTime(s) {
+  const m = Math.floor(s / 60), sec = s % 60;
+  return `${m}:${sec.toString().padStart(2,'0')}`;
+}
+function fmtNum(n) {
+  if (n >= 1000) return (n/1000).toFixed(1) + 'k';
+  return String(Math.round(n));
+}
+
+// ---------------------------------------------------------------------------
+// Draw
+// ---------------------------------------------------------------------------
+function draw(s) {
+  const size  = canvas.width;
+  if (!size) return;
+  const scale = size / 500;
+  const cx = size / 2, cy = size / 2;
+
+  const R_OUT    = 220 * scale;
+  const W_OUT    = Math.max(6, 22 * scale);
+  const R_IN     = 178 * scale;
+  const W_IN     = Math.max(5, 16 * scale);
+  const R_CENTER = 152 * scale;
+
+  function arc(r, startRad, endRad, color, width, round) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, startRad, endRad, false);
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = width;
+    ctx.lineCap     = round ? 'round' : 'butt';
+    ctx.stroke();
+  }
+
+  function drawDividers() {
+    ctx.save();
+    ctx.strokeStyle = COLORS.divider;
+    ctx.lineWidth   = Math.max(1, 2 * scale);
+    const drawDiv = (angle, r, w) => {
+      const x1 = cx + Math.cos(angle) * (r - w/2 - 2*scale);
+      const y1 = cy + Math.sin(angle) * (r - w/2 - 2*scale);
+      const x2 = cx + Math.cos(angle) * (r + w/2 + 2*scale);
+      const y2 = cy + Math.sin(angle) * (r + w/2 + 2*scale);
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    };
+    drawDiv(TOP,           R_OUT, W_OUT);
+    drawDiv(TOP + Math.PI, R_OUT, W_OUT);
+    drawDiv(TOP,           R_IN,  W_IN);
+    drawDiv(TOP + Math.PI, R_IN,  W_IN);
+    ctx.restore();
+  }
+
+  function drawTypeArc(order, colorMap, pcts, startAngle, spanRad, r, w) {
+    let cur = startAngle;
+    for (const dtype of order) {
+      const pct = (pcts[dtype] || 0) / 100;
+      if (pct <= 0) continue;
+      const sweep = spanRad * pct;
+      arc(r, cur, cur + sweep, colorMap[dtype], w);
+      cur += sweep;
+    }
+    if (cur < startAngle + spanRad - 0.001) {
+      arc(r, cur, startAngle + spanRad, COLORS.dim, w);
+    }
+  }
+
+  ctx.clearRect(0, 0, size, size);
+
+  // BG circle
+  ctx.beginPath();
+  ctx.arc(cx, cy, R_CENTER + 4*scale, 0, PI2);
+  ctx.fillStyle = '#0d0d0f';
+  ctx.fill();
+
+  const outDps  = s.outgoing_dps  || 0;
+  const inDps   = s.incoming_dps  || 0;
+  const appPct  = s.application_pct || 0;
+  const paperDps = s.paper_dps;
+  const appMode  = s.application_mode;
+
+  // ── Outer ring ───────────────────────────────────────
+  arc(R_OUT, TOP,           TOP + Math.PI, COLORS.dim, W_OUT);
+  arc(R_OUT, TOP + Math.PI, TOP + PI2,     COLORS.dim, W_OUT);
+
+  if (appMode === 'paper' && paperDps) {
+    arc(R_OUT, TOP, TOP + Math.PI, 'rgba(55,138,221,0.18)', W_OUT);
+  }
+
+  {
+    let frac = appMode === 'paper' && paperDps && paperDps > 0
+      ? Math.min(outDps / paperDps, 1.0)
+      : Math.min(appPct / 100, 1.0);
+    if (frac > 0) arc(R_OUT, TOP, TOP + Math.PI * frac, COLORS.teal, W_OUT, true);
+  }
+
+  {
+    const frac = Math.min(inDps / MAX_IN_DPS, 1.0);
+    if (frac > 0) arc(R_OUT, TOP + Math.PI, TOP + Math.PI + Math.PI * frac, COLORS.red_arc, W_OUT, true);
+  }
+
+  // ── Inner ring ───────────────────────────────────────
+  arc(R_IN, TOP,           TOP + Math.PI, COLORS.dim, W_IN);
+  arc(R_IN, TOP + Math.PI, TOP + PI2,     COLORS.dim, W_IN);
+  drawTypeArc(DTYPE_ORDER_OUT, COLOR_OUT, s.outgoing_by_type, TOP,           Math.PI, R_IN, W_IN);
+  drawTypeArc(DTYPE_ORDER_IN,  COLOR_IN,  s.incoming_by_type, TOP + Math.PI, Math.PI, R_IN, W_IN);
+  drawDividers();
+
+  // ── Center text ──────────────────────────────────────
+  ctx.beginPath();
+  ctx.moveTo(cx - 90*scale, cy);
+  ctx.lineTo(cx + 90*scale, cy);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth   = 1;
+  ctx.stroke();
+
+  const f = (sz, bold) => `${bold ? 'bold ' : ''}${Math.round(sz * scale)}px "Segoe UI", system-ui, sans-serif`;
+
+  ctx.textAlign = 'center';
+
+  // Top — OUTGOING
+  ctx.fillStyle = '#3a3a48';
+  ctx.font = f(13);
+  ctx.fillText('OUTGOING', cx, cy - 68*scale);
+
+  ctx.fillStyle = COLORS.teal;
+  ctx.font = f(46, true);
+  ctx.fillText(Math.round(outDps), cx, cy - 26*scale);
+
+  ctx.fillStyle = '#404050';
+  ctx.font = f(13);
+  const appLabel = appMode === 'paper'
+    ? `${Math.round(appPct)}% applied`
+    : `${Math.round(appPct)}% consistent`;
+  ctx.fillText(appLabel, cx, cy - 10*scale);
+
+  if (appMode === 'paper' && paperDps) {
+    ctx.fillStyle = '#2a2a36';
+    ctx.font = f(11);
+    ctx.fillText(`paper: ${Math.round(paperDps)}`, cx, cy + 3*scale);
+  }
+
+  // Bottom — INCOMING
+  ctx.fillStyle = '#3a3a48';
+  ctx.font = f(13);
+  ctx.fillText('INCOMING', cx, cy + 20*scale);
+
+  ctx.fillStyle = COLORS.red_text;
+  ctx.font = f(38, true);
+  ctx.fillText(Math.round(inDps), cx, cy + 54*scale);
+
+  ctx.fillStyle = '#404050';
+  ctx.font = f(13);
+  ctx.fillText('dps', cx, cy + 70*scale);
+}
+
+// ---------------------------------------------------------------------------
+// Stat bar + badge
+// ---------------------------------------------------------------------------
+function updateStats(s) {
+  document.getElementById('sv-paper').textContent = s.paper_dps ? Math.round(s.paper_dps) : '—';
+  document.getElementById('sv-dps').textContent   = Math.round(s.outgoing_dps);
+  document.getElementById('sv-app').textContent   = Math.round(s.application_pct) + '%';
+  document.getElementById('sv-recv').textContent  = fmtNum(s.total_incoming);
+  document.getElementById('sv-sess').textContent  = fmtTime(s.session_seconds);
+}
+
+function updateBadge(s) {
+  const badge = document.getElementById('mode-badge');
+  const label = document.getElementById('paper-label');
+  if (s.application_mode === 'paper' && s.paper_dps) {
+    badge.className = 'paper';
+    badge.textContent = 'Paper DPS mode';
+    label.textContent = `${Math.round(s.paper_dps)} DPS set`;
+  } else {
+    badge.className = 'consistency';
+    badge.textContent = 'Consistency mode';
+    label.textContent = '';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Target table
+// ---------------------------------------------------------------------------
+function updateTargets(list) {
+  const tbody = document.getElementById('target-body');
+  if (!list || list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" class="no-targets">No combat data yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(t => `
+    <tr>
+      <td title="${escHtml(t.name)}">${escHtml(t.name)}</td>
+      <td class="teal">${fmtNum(t.total_dmg_out)}</td>
+      <td class="red">${fmtNum(t.total_dmg_in)}</td>
+    </tr>`).join('');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ---------------------------------------------------------------------------
+// Crit floaters
+// ---------------------------------------------------------------------------
+function spawnCrit(crit) {
+  if (shownCrits.has(crit.timestamp)) return;
+  shownCrits.add(crit.timestamp);
+
+  const host  = document.getElementById('floater-host');
+  const el    = document.createElement('div');
+  el.className = 'crit-floater';
+
+  const isOut = crit.direction === 'to';
+  const amt   = crit.amount;
+  const sz    = canvas.width;
+  const scale = sz / 500;
+  const fontSize = Math.min(22, Math.max(13, 13 + (amt / 2000) * 9)) * scale;
+
+  el.style.fontSize = fontSize + 'px';
+  el.style.color    = isOut ? '#1D9E75' : '#D85A30';
+  el.textContent    = isOut ? `+${amt.toLocaleString()}` : `-${amt.toLocaleString()}`;
+
+  const cx   = sz / 2;
+  const baseY = sz * (0.40 + Math.random() * 0.20);
+  const baseX = isOut
+    ? cx + sz * (0.12 + Math.random() * 0.12)
+    : cx - sz * (0.12 + Math.random() * 0.12) - fontSize * 3;
+
+  el.style.left = baseX + 'px';
+  el.style.top  = baseY + 'px';
+  host.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+function processCrits(crits) {
+  if (!crits) return;
+  for (const c of crits) spawnCrit(c);
+  if (shownCrits.size > 200) {
+    const arr = [...shownCrits];
+    arr.splice(0, 100).forEach(k => shownCrits.delete(k));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Status overlay
+// ---------------------------------------------------------------------------
+function setStatus(msg) {
+  const el = document.getElementById('status-overlay');
+  el.style.display = msg ? 'flex' : 'none';
+  el.textContent   = msg || '';
+}
+
+// ---------------------------------------------------------------------------
+// Poll loop
+// ---------------------------------------------------------------------------
+let _pollFailing = false;
+
+async function poll() {
+  try {
+    const s = await window.pywebview.api.get_state();
+    lastState = s;
+    _pollFailing = false;
+
+    const hasData = s.total_outgoing > 0 || s.total_incoming > 0;
+    setStatus(noLogDir
+      ? 'No EVE log directory found. Start EVE first.'
+      : (!hasData ? 'Waiting for combat…' : null));
+
+    draw(s);
+    updateStats(s);
+    updateTargets(s.target_list);
+    updateBadge(s);
+    processCrits(s.recent_crits);
+    document.getElementById('file-name').textContent = s.monitored_file || '—';
+  } catch(e) {
+    if (!_pollFailing) { _pollFailing = true; setStatus('Connecting to backend…'); }
+  }
+}
+
+function startPoll() {
+  if (window.pywebview && window.pywebview.api) {
+    document.getElementById('pin-btn').classList.add('active');
+    document.body.classList.add('is-pinned');
+    window.pywebview.api.set_always_on_top(true);
+    _curAlpha = ALPHA_PINNED;   // set_always_on_top already applied 217
+    updateLayout();
+    poll();
+    setInterval(poll, 500);
+  } else {
+    setTimeout(startPoll, 100);
+  }
+}
+window.addEventListener('pywebviewready', startPoll);
+startPoll();
+
+// ---------------------------------------------------------------------------
+// Controls
+// ---------------------------------------------------------------------------
+function setPaper() {
+  const val = parseFloat(document.getElementById('paper-input').value);
+  if (!isNaN(val) && val > 0) window.pywebview.api.set_paper_dps(val);
+}
+function clearPaper() {
+  document.getElementById('paper-input').value = '';
+  window.pywebview.api.clear_paper_dps();
+}
+function resetSession() {
+  window.pywebview.api.reset_session();
+  shownCrits.clear();
+}
+function togglePin() {
+  pinned = !pinned;
+  document.getElementById('pin-btn').classList.toggle('active', pinned);
+  document.body.classList.toggle('is-pinned', pinned);
+  window.pywebview.api.set_always_on_top(pinned);
+  if (pinned) {
+    _curAlpha = ALPHA_FULL;
+    _stepAlpha(ALPHA_PINNED);
+  } else {
+    if (_alphaAnim) { clearInterval(_alphaAnim); _alphaAnim = null; }
+    _curAlpha = ALPHA_FULL;
+  }
+}
+
+function togglePanel() {
+  panelVisible = !panelVisible;
+  contentEl.classList.toggle('panel-hidden', !panelVisible);
+  document.getElementById('panel-btn').textContent = panelVisible ? '⊟' : '⊞';
+  updateLayout();
+}
+document.getElementById('paper-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') setPaper();
+});
+
+// Initial blank draw (will be redrawn once layout runs)
+updateLayout();
+draw({
+  outgoing_dps: 0, incoming_dps: 0,
+  paper_dps: null, application_pct: 0, application_mode: 'consistency',
+  outgoing_by_type: {}, incoming_by_type: {},
+  session_seconds: 0, total_outgoing: 0, total_incoming: 0,
+  target_list: [], recent_crits: [],
+});
+</script>
+</body>
+</html>
