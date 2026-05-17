@@ -92,21 +92,20 @@ class SessionState:
                     "timestamp": ts,
                 })
 
-            # NPC intel — only match entities we are shooting at
-            if ev.direction == "to":
-                faction_name, faction_data, ship_data = match_npc(ev.entity)
-                if faction_name:
-                    self._faction_hits[faction_name] = self._faction_hits.get(faction_name, 0) + 1
-                    self._faction_data[faction_name] = faction_data
-                    self._faction_last[faction_name] = ts
-                if ship_data and ship_data.get("threat") in ("rare", "elite", "boss"):
-                    if ev.entity not in self._rare_alerts:
-                        self._rare_alerts[ev.entity] = {
-                            "name": ev.entity,
-                            "threat": ship_data["threat"],
-                            "notes": ship_data.get("notes", ""),
-                            "ts": ts,
-                        }
+            # NPC intel — match entities from both directions (attacker or target)
+            faction_name, faction_data, ship_data = match_npc(ev.entity)
+            if faction_name:
+                self._faction_hits[faction_name] = self._faction_hits.get(faction_name, 0) + 1
+                self._faction_data[faction_name] = faction_data
+                self._faction_last[faction_name] = ts
+            if ship_data and ship_data.get("threat") in ("rare", "elite", "boss"):
+                if ev.entity not in self._rare_alerts:
+                    self._rare_alerts[ev.entity] = {
+                        "name": ev.entity,
+                        "threat": ship_data["threat"],
+                        "notes": ship_data.get("notes", ""),
+                        "ts": ts,
+                    }
 
             t = self._targets.setdefault(ev.entity, {"out": 0, "in_": 0})
             if ev.direction == "to":
@@ -135,6 +134,11 @@ class SessionState:
 
             out_dps = sum(h[1] for h in self._out_hits) / DPS_WINDOW
             in_dps = sum(h[1] for h in self._in_hits) / DPS_WINDOW
+            # Per-type incoming DPS from the live window
+            _in_type_raw: dict = {}
+            for _, dmg, dtype, _ in self._in_hits:
+                _in_type_raw[dtype] = _in_type_raw.get(dtype, 0) + dmg
+            in_dps_by_type = {k: round(v / DPS_WINDOW, 1) for k, v in _in_type_raw.items()}
             out_type_snap = dict(self._out_type_totals)
             in_type_snap = dict(self._in_type_totals)
             paper = self._paper_dps
@@ -199,6 +203,7 @@ class SessionState:
             "session_seconds": session_sec,
             "total_outgoing": int(total_out),
             "total_incoming": int(total_in),
+            "incoming_dps_by_type": in_dps_by_type,
             "recent_crits": crits[-5:],
             "current_faction": current_faction,
             "faction_info": faction_info,

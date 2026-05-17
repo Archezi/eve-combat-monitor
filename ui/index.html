@@ -275,6 +275,38 @@
   .ms-val.red   { color: #D85A30; }
   .ms-val.amber { color: #E8A820; }
 
+  /* ── Incoming damage breakdown ──────────────────────── */
+  #recv-breakdown { flex-shrink: 0; margin-bottom: 8px; }
+  .compact-mode #recv-breakdown { display: none; }
+
+  .recv-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+    padding: 4px 2px;
+    border-bottom: 1px solid #0f0f14;
+  }
+  .recv-type {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    width: 72px;
+    flex-shrink: 0;
+  }
+  .recv-pct {
+    font-size: 12px;
+    color: #6a6a78;
+    width: 34px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .recv-dps {
+    font-size: 11px;
+    color: #38384a;
+    flex: 1;
+    text-align: right;
+  }
+
   /* ── NPC intel panel ─────────────────────────────────── */
   #npc-panel { flex: 1; min-height: 0; overflow-y: auto; }
   .compact-mode #npc-panel { display: none; }
@@ -444,6 +476,12 @@
         <div class="ms-lbl">SESS</div>
         <div class="ms-val" id="sv-sess">0:00</div>
       </div>
+    </div>
+
+    <!-- Incoming damage breakdown -->
+    <div id="recv-breakdown" hidden>
+      <div class="sec-hdr">Incoming damage</div>
+      <div id="recv-rows"></div>
     </div>
 
     <!-- NPC intel -->
@@ -821,6 +859,35 @@ function updateBadge(s) {
 }
 
 // ---------------------------------------------------------------------------
+// Incoming damage breakdown
+// ---------------------------------------------------------------------------
+const RECV_ORDER = ['EM', 'Thermal', 'Kinetic', 'Explosive', 'Unknown'];
+
+function updateRecvBreakdown(s) {
+  const section = document.getElementById('recv-breakdown');
+  const rows    = document.getElementById('recv-rows');
+
+  const byPct = s.incoming_by_type    || {};
+  const byDps = s.incoming_dps_by_type || {};
+
+  const active = RECV_ORDER.filter(t => (byPct[t] || 0) > 0);
+  if (active.length === 0) { section.hidden = true; return; }
+
+  section.hidden = false;
+  rows.innerHTML = active.map(t => {
+    const pct = Math.round(byPct[t] || 0);
+    const dps = byDps[t] || 0;
+    const col = DTYPE_COLORS[t] || '#888';
+    const dpsStr = dps >= 1 ? Math.round(dps) + '/s' : '—';
+    return `<div class="recv-row">
+      <span class="recv-type" style="color:${col}">${t}</span>
+      <span class="recv-pct">${pct}%</span>
+      <span class="recv-dps">${dpsStr}</span>
+    </div>`;
+  }).join('');
+}
+
+// ---------------------------------------------------------------------------
 // NPC intel panel
 // ---------------------------------------------------------------------------
 function escHtml(s) {
@@ -963,6 +1030,7 @@ async function poll() {
 
     draw(s);
     updateMiniStats(s);
+    updateRecvBreakdown(s);
     updateNPC(s);
     updateBadge(s);
     processCrits(s.recent_crits);
