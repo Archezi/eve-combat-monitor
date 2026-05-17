@@ -48,6 +48,7 @@ def _latest_log(log_dir: Path) -> Optional[Path]:
 DAMAGE_TYPES = ["EM", "Thermal", "Kinetic", "Explosive", "Unknown"]
 DPS_WINDOW = 10.0       # seconds
 CONSISTENCY_WINDOW = 60  # last N hits
+AUTO_RESET_IDLE = 60.0  # seconds of no combat before auto-reset
 
 
 class SessionState:
@@ -65,6 +66,7 @@ class SessionState:
             self._recent_crits: deque = deque(maxlen=20)
             self._targets: dict = {}          # name → {out, in_}
             self._start = time.time()
+            self._last_event_ts: Optional[float] = None  # wall-clock time of most recent event
             self._paper_dps: Optional[float] = None
             # NPC intel
             self._faction_hits: dict = {}     # faction_name → hit count
@@ -77,6 +79,7 @@ class SessionState:
         # but datetime.timestamp() assumes local time — causes immediate pruning).
         ts = time.time()
         with self._lock:
+            self._last_event_ts = ts
             bucket = self._out_hits if ev.direction == "to" else self._in_hits
             bucket.append((ts, ev.damage, ev.damage_type, ev.is_critical))
             type_totals = self._out_type_totals if ev.direction == "to" else self._in_type_totals
@@ -120,6 +123,17 @@ class SessionState:
     def clear_paper_dps(self):
         with self._lock:
             self._paper_dps = None
+
+    def check_auto_reset(self):
+        """Reset the session if no combat event has been seen for AUTO_RESET_IDLE seconds."""
+        with self._lock:
+            if self._last_event_ts is None:
+                return
+            if time.time() - self._last_event_ts <= AUTO_RESET_IDLE:
+                return
+            has_data = bool(self._targets)
+        if has_data:
+            self.reset()
 
     def get_state(self) -> dict:
         now = time.time()
@@ -401,6 +415,7 @@ def main():
     def poll_loop():
         while True:
             tailer.tail()
+            state.check_auto_reset()
             time.sleep(0.25)
 
     t = threading.Thread(target=poll_loop, daemon=True)
