@@ -62,6 +62,25 @@ DAMAGE_TYPE_KEYWORDS = {
 
         # Generic fallback (space-padded to avoid partial matches in words)
         " em ",
+
+        # ── NPC entity name prefixes (turrets don't log weapon names) ─────────
+        # When a turret NPC hits you, EVE logs "Entity - Hits" with no weapon.
+        # log_parser falls back to the entity name, so we match on NPC class prefixes.
+
+        # Sansha's Nation (all ship classes deal primarily EM)
+        "centii",       # frigates: Ravener, Scavenger, Slavehunter, Savage, Minion…
+        "centior",      # destroyers: Devourer, Abomination, Horror, Monster…
+        "centum",       # cruisers: Ravisher, Fiend, Mutant, Execrator…
+        "centus",       # battleships: Plague, Beast, Savage, Tyrant…
+        "centatis",     # officer spawns
+        "sansha",       # covers Sansha Sentry Gun, Tower Sentry Sansha, etc.
+
+        # Blood Raiders (energy weapons, EM/Thermal — EM dominant)
+        "corpii",       # frigates: Raider, Diviner, Worshiper, Engraver…
+        "corpior",      # destroyers: Devoter, Converter, Templar…
+        "corpus",       # cruisers: Monsignor, Pope, Patriarch, Archbishop…
+        "corpatis",     # officer spawns
+        "dark blood",   # officer/faction prefix
     ],
 
     # ── Explosive ──────────────────────────────────────────────────
@@ -80,6 +99,14 @@ DAMAGE_TYPE_KEYWORDS = {
         "entropic disintegrator", "disintegrator",
         # Generic
         "explosive",
+
+        # ── NPC entity name prefixes (turrets, no weapon logged) ──────────────
+        # Angel Cartel (autocannons, primarily Explosive)
+        "gistii",       # frigates: Smasher, Trasher, Arrogator…
+        "gistior",      # destroyers: Haunter, Defiler, Seeker…
+        "gistum",       # cruisers: Breaker, Marauder, Mutilator…
+        "gistatis",     # officer spawns
+        "arch gistii", "arch gistior", "arch gistum",   # arch-class
     ],
 }
 

@@ -328,7 +328,6 @@
     font-size: 13px;
     font-weight: 600;
     color: #c8c8cc;
-    flex: 1;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -381,6 +380,23 @@
     margin-top: 6px;
     padding-top: 6px;
     border-top: 1px solid #1a1a22;
+  }
+
+  .npc-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    border: 1px solid #181824;
+    background: #111118;
+    flex-shrink: 0;
+    object-fit: contain;
+  }
+  .npc-hdr-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
   }
 
   /* ── Rare spawn alerts ───────────────────────────────── */
@@ -489,8 +505,11 @@
       <div id="npc-placeholder" class="npc-ph">Awaiting NPC intel…</div>
       <div id="npc-content" hidden>
         <div id="npc-hdr">
-          <span id="npc-tank" class="tank-badge shield">SHIELD</span>
-          <span id="npc-name" class="npc-faction-name"></span>
+          <img id="npc-logo" class="npc-logo" alt="" style="display:none" />
+          <div class="npc-hdr-info">
+            <span id="npc-name" class="npc-faction-name"></span>
+            <span id="npc-tank" class="tank-badge shield">SHIELD</span>
+          </div>
         </div>
         <div class="npc-row">
           <span class="npc-lbl">Deal</span>
@@ -645,6 +664,29 @@ let panelVisible = true;
 let lastState    = null;
 let shownCrits   = new Set();
 let noLogDir     = (typeof window._CFG !== 'undefined') && window._CFG.noLogDir;
+
+// EVE ESI faction logos
+let factionLogoMap = {};
+const _FACTION_ALIASES = {
+  "Guristas Pirates":  "Guristas",
+  "Blood Raiders":     "Blood Raider Covenant",
+};
+
+async function loadFactionLogos() {
+  try {
+    const res = await fetch('https://esi.evetech.net/latest/universe/factions/?datasource=tranquility');
+    if (!res.ok) return;
+    const factions = await res.json();
+    for (const f of factions) {
+      if (f.corporation_id) {
+        factionLogoMap[f.name] = `https://images.evetech.net/corporations/${f.corporation_id}/logo?size=64`;
+      }
+    }
+    for (const [ourName, esiName] of Object.entries(_FACTION_ALIASES)) {
+      if (factionLogoMap[esiName]) factionLogoMap[ourName] = factionLogoMap[esiName];
+    }
+  } catch(_) {}
+}
 
 // Win32 layered-window alpha animation
 const ALPHA_PINNED = 217;  // ~85%
@@ -916,6 +958,8 @@ function updateNPC(s) {
     ph.hidden      = false;
     content.hidden = true;
     document.getElementById('rare-section').hidden = true;
+    const logoEl = document.getElementById('npc-logo');
+    logoEl.src = ''; logoEl.style.display = 'none'; logoEl.dataset.src = '';
     return;
   }
 
@@ -924,6 +968,22 @@ function updateNPC(s) {
 
   const fi = s.faction_info;
   document.getElementById('npc-name').textContent = s.current_faction;
+
+  // Faction logo from ESI
+  const logoEl  = document.getElementById('npc-logo');
+  const logoUrl = factionLogoMap[s.current_faction] || '';
+  if (logoEl.dataset.src !== logoUrl) {
+    logoEl.dataset.src = logoUrl;
+    if (logoUrl) {
+      logoEl.onerror = () => { logoEl.style.display = 'none'; };
+      logoEl.onload  = () => { logoEl.style.display = ''; };
+      logoEl.style.display = 'none';
+      logoEl.src = logoUrl;
+    } else {
+      logoEl.src = '';
+      logoEl.style.display = 'none';
+    }
+  }
 
   const tankEl = document.getElementById('npc-tank');
   const tank = (fi.tank || 'varies').toLowerCase();
@@ -1046,6 +1106,7 @@ function startPoll() {
     document.body.classList.add('is-pinned');
     window.pywebview.api.set_always_on_top(true);
     _curAlpha = ALPHA_PINNED;   // set_always_on_top already applied 217
+    loadFactionLogos();
     updateLayout();
     poll();
     setInterval(poll, 500);

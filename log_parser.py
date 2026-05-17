@@ -7,6 +7,13 @@ from damage_types import get_damage_type
 
 _HTML_RE = re.compile(r"<[^>]+>")
 
+# Hit-result words that appear as the sole 2nd field when no weapon name was logged.
+# When a turret NPC hits you, EVE logs "Entity - Hits" (no weapon); missile NPCs log
+# "Entity - Missile Name - Hits" (three parts, weapon is middle).
+_HIT_RESULTS = frozenset({
+    "hits", "penetrates", "smashes", "glances off", "grazes", "wrecks", "absorbed",
+})
+
 # Timestamp + combat prefix (matched after HTML stripping)
 _PREFIX_RE = re.compile(
     r"\[\s*(\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2}:\d{2})\s*\]\s*\(combat\)\s+(\d+)\s+(to|from)\s+(.+)$",
@@ -52,8 +59,13 @@ def _parse_tail(tail: str):
     entity_clean = entity_clean.strip()
 
     if len(parts) == 2:
-        # Could be "weapon - result" or "result you" (no weapon)
-        weapon = parts[1]
+        # Only two parts means no explicit weapon was logged — the second field is
+        # the hit result (Hits, Penetrates, etc.), not a weapon name.
+        # Fall back to the entity name so get_damage_type can infer by NPC class.
+        if parts[1].lower() in _HIT_RESULTS:
+            weapon = entity_clean
+        else:
+            weapon = parts[1]
         result = parts[1]
     else:
         weapon = parts[1]
